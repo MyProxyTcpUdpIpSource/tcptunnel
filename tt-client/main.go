@@ -26,8 +26,8 @@ var (
 func init() {
 	flag.StringVar(&addr, "server", "", "Set server address")
 	flag.IntVar(&port, "port", 8443, "Set server port")
-	flag.StringVar(&localAddr, "loacl", "", "Set loacl address")
-	flag.IntVar(&localPort, "localPort", 8088, "Set loacl port")
+	flag.StringVar(&localAddr, "local", "", "Set local address")
+	flag.IntVar(&localPort, "localPort", 8088, "Set local port")
 	flag.StringVar(&pac, "pac", "./pac.txt", "Set pac path")
 	flag.StringVar(&password, "password", "asdfghjkl", "Password")
 }
