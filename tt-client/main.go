@@ -80,6 +80,13 @@ func main() {
 				return
 			}
 
+			//loop check
+			if c.RemoteAddr().String() == aesconn.RemoteAddr().String() {
+				aesconn.Close()
+				c.Close()
+				return
+			}
+
 			go copyAndClose(aesconn, c)
 			go copyAndClose(c, aesconn)
 		}(conn)

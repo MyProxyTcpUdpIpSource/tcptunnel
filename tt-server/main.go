@@ -48,7 +48,7 @@ func main() {
 			}
 
 			//loop check
-			if aesconn.RemoteAddr() == forwardconn.RemoteAddr() {
+			if aesconn.RemoteAddr().String() == forwardconn.RemoteAddr().String() {
 				aesconn.Close()
 				forwardconn.Close()
 				return
