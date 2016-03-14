@@ -47,6 +47,13 @@ func main() {
 				return
 			}
 
+			//loop check
+			if aesconn.RemoteAddr() == forwardconn.RemoteAddr() {
+				aesconn.Close()
+				forwardconn.Close()
+				return
+			}
+
 			go copyAndClose(aesconn, forwardconn)
 			go copyAndClose(forwardconn, aesconn)
 		}(conn)
