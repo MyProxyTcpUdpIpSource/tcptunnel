@@ -45,7 +45,6 @@ func main() {
 			if err != nil {
 				log.Println(err)
 				aesconn.Close()
-				forwardconn.Close()
 				return
 			}
 
