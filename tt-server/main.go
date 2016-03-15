@@ -44,6 +44,8 @@ func main() {
 			forwardconn, err := net.Dial("tcp", forward)
 			if err != nil {
 				log.Println(err)
+				aesconn.Close()
+				forwardconn.Close()
 				return
 			}
 

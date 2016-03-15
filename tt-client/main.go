@@ -77,6 +77,8 @@ func main() {
 			aesconn, err := encodes.Dial(addr+":"+strconv.Itoa(port), password)
 			if err != nil {
 				log.Println(err)
+				aesconn.Close()
+				c.Close()
 				return
 			}
 
