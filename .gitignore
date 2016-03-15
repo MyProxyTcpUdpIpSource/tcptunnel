@@ -2,4 +2,5 @@ tt-client/tt-client
 tt-client/tt-client_linux_amd64
 tt-server/tt-server
 tt-server/tt-server_linux_amd64
+squid/tt-server
 *.exe
