@@ -96,7 +96,7 @@ func main() {
 
 func copyAndClose(w, r net.Conn) {
 	io.Copy(w, r)
-	r.Close()
+	w.Close()
 }
 
 func exist(filepath string) bool {
