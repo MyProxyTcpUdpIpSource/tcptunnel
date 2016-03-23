@@ -92,10 +92,11 @@ func (l *Listener) Accept() (aesconn net.Conn, err error) {
 		return nil, err
 	}
 
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+
 	ivvector := make([]byte, IVLength)
 	var ri = 0
 	for ri < IVLength {
-		conn.SetReadDeadline(time.Now().Add(30 * time.Microsecond))
 		r, err := conn.Read(ivvector[ri:])
 		if err != nil {
 			return nil, err
