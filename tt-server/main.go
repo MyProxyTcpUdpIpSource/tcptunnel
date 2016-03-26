@@ -63,13 +63,13 @@ func main() {
 }
 
 func copyAndClose(w, r net.Conn) {
-	buf := make([]byte, 16384)
+	buf := make([]byte, 65536)
 	defer w.Close()
 
 	for {
 		r.SetReadDeadline(time.Now().Add(60 * time.Second))
 
-		if _, err := io.CopyBuffer(w, r, buf); err != nil {
+		if written, err := io.CopyBuffer(w, r, buf); err != nil || written == 0 {
 			return
 		}
 	}
