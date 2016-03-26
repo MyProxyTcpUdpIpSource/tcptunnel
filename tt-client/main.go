@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Randomsock5/tcptunnel/encodes"
 )
@@ -95,8 +96,17 @@ func main() {
 }
 
 func copyAndClose(w, r net.Conn) {
-	io.Copy(w, r)
-	w.Close()
+	buf := make([]byte, 128)
+	defer w.Close()
+
+	for {
+		r.SetReadDeadline(time.Now().Add(60 * time.Second))
+
+		if _, err := io.CopyBuffer(w, r, buf); err != nil {
+			log.Println(err)
+			return
+		}
+	}
 }
 
 func exist(filepath string) bool {
