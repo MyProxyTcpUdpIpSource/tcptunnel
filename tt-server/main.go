@@ -67,7 +67,7 @@ func copyAndClose(w, r net.Conn) {
 	defer w.Close()
 
 	for {
-		r.SetReadDeadline(time.Now().Add(60 * time.Second))
+		r.SetDeadline(time.Now().Add(120 * time.Second))
 
 		if written, err := io.CopyBuffer(w, r, buf); err != nil || written == 0 {
 			return
