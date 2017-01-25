@@ -2,7 +2,6 @@ FROM fedora
 
 MAINTAINER Randomsock5 "Randomsock5@users.noreply.github.com"
 
-RUN dnf update -y
 RUN dnf install -y squid supervisor
 RUN mkdir -p /var/log/supervisor
 RUN mkdir -p /var/spool/squid
