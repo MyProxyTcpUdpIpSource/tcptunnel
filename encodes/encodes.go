@@ -56,7 +56,7 @@ func (ac *AESConn) SetWriteDeadline(t time.Time) error {
 
 func NewAESConn(key string, iv [aes.BlockSize]byte, conn net.Conn) (aesconn *AESConn, err error) {
 	keybin := []byte(key)
-	t := time.UTC()
+	t := time.Now().UTC()
 
 	hashkey := sha256.Sum256(keybin)
 	salt := sha256.Sum256(
