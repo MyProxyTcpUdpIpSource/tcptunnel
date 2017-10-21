@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	IVLength = 1400
+	ivLength = 3200
 )
 
 type AESConn struct {
@@ -20,13 +20,13 @@ type AESConn struct {
 	w    *cipher.StreamWriter
 }
 
-func (ac *AESConn) Read(dst []byte) (n int, err error) {
-	n, err = ac.r.Read(dst)
+func (ac *AESConn) Read(dst []byte) (int, error) {
+	n, err := ac.r.Read(dst)
 	return n, err
 }
 
-func (ac *AESConn) Write(src []byte) (n int, err error) {
-	n, err = ac.w.Write(src)
+func (ac *AESConn) Write(src []byte) (int, error) {
+	n, err := ac.w.Write(src)
 	return n, err
 }
 
@@ -54,7 +54,7 @@ func (ac *AESConn) SetWriteDeadline(t time.Time) error {
 	return ac.conn.SetWriteDeadline(t)
 }
 
-func NewAESConn(key string, iv [aes.BlockSize]byte, conn net.Conn) (aesconn *AESConn, err error) {
+func NewAESConn(key string, iv [aes.BlockSize]byte, conn net.Conn) (*AESConn, error) {
 	keybin := []byte(key)
 	t := time.Now().UTC()
 
@@ -67,6 +67,10 @@ func NewAESConn(key string, iv [aes.BlockSize]byte, conn net.Conn) (aesconn *AES
 	aeskey := sha256.Sum256(hashsalt)
 
 	rblock, err := aes.NewCipher(aeskey[:])
+	if err != nil {
+		return nil, err
+	}
+
 	wblock, err := aes.NewCipher(aeskey[:])
 	if err != nil {
 		return nil, err
@@ -75,7 +79,7 @@ func NewAESConn(key string, iv [aes.BlockSize]byte, conn net.Conn) (aesconn *AES
 	rstream := cipher.NewOFB(rblock, iv[:])
 	wstream := cipher.NewOFB(wblock, iv[:])
 
-	aesconn = &AESConn{
+	aesconn := &AESConn{
 		conn: conn,
 		r:    &cipher.StreamReader{S: rstream, R: conn},
 		w:    &cipher.StreamWriter{S: wstream, W: conn},
@@ -88,20 +92,20 @@ type Listener struct {
 	key  string
 }
 
-func (l *Listener) Accept() (aesconn net.Conn, err error) {
+func (l *Listener) Accept() (net.Conn, error) {
 	conn, err := l.netl.Accept()
 	if err != nil {
 		return nil, err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
-	ivvector := make([]byte, IVLength)
+	ivvector := make([]byte, ivLength)
 	var ri = 0
-	for ri < IVLength {
-		r, err := conn.Read(ivvector[ri:])
-		if err != nil {
-			return nil, err
+	for ri < ivLength {
+		r, _err := conn.Read(ivvector[ri:])
+		if _err != nil {
+			return nil, _err
 		}
 		ri += r
 	}
@@ -114,7 +118,7 @@ func (l *Listener) Accept() (aesconn net.Conn, err error) {
 	var iv [aes.BlockSize]byte
 	copy(iv[:], hash[:aes.BlockSize])
 
-	aesconn, err = NewAESConn(l.key, iv, conn)
+	aesconn, err := NewAESConn(l.key, iv, conn)
 
 	return aesconn, err
 }
@@ -127,26 +131,26 @@ func (l *Listener) Addr() net.Addr {
 	return l.netl.Addr()
 }
 
-func Listen(laddr string, key string) (l *Listener, err error) {
+func Listen(laddr string, key string) (*Listener, error) {
 	netl, err := net.Listen("tcp", laddr)
 	if err != nil {
 		return nil, err
 	}
 
-	l = &Listener{
+	l := &Listener{
 		netl: netl,
 		key:  key,
 	}
 	return l, nil
 }
 
-func Dial(address string, key string) (aesconn net.Conn, err error) {
+func Dial(address string, key string) (net.Conn, error) {
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		return nil, err
 	}
 
-	ivvector := make([]byte, IVLength)
+	ivvector := make([]byte, ivLength)
 	_, err = rand.Read(ivvector[:])
 
 	if err != nil {
@@ -154,10 +158,10 @@ func Dial(address string, key string) (aesconn net.Conn, err error) {
 	}
 
 	var wi = 0
-	for wi < IVLength {
-		r, err := conn.Write(ivvector[wi:])
-		if err != nil {
-			return nil, err
+	for wi < ivLength {
+		r, _err := conn.Write(ivvector[wi:])
+		if _err != nil {
+			return nil, _err
 		}
 		wi += r
 	}
@@ -170,6 +174,6 @@ func Dial(address string, key string) (aesconn net.Conn, err error) {
 	var iv [aes.BlockSize]byte
 	copy(iv[:], hash[:aes.BlockSize])
 
-	aesconn, err = NewAESConn(key, iv, conn)
+	aesconn, err := NewAESConn(key, iv, conn)
 	return aesconn, err
 }
