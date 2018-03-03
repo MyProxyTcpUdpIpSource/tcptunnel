@@ -8,11 +8,12 @@ import (
 	"fmt"
 	"net"
 	"time"
+	"github.com/Randomsock5/tcptunnel/constants"
+	"io"
+	"log"
+	"bytes"
 )
 
-const (
-	ivLength = 3200
-)
 
 type AESConn struct {
 	conn net.Conn
@@ -97,17 +98,12 @@ func (l *Listener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	conn.SetReadDeadline(time.Now().Add(constants.ConnTimeout))
 
-	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	ivVector := make([]byte, constants.IVLength)
 
-	ivVector := make([]byte, ivLength)
-	var ri = 0
-	for ri < ivLength {
-		r, err := conn.Read(ivVector[ri:])
-		if err != nil {
-			return nil, err
-		}
-		ri += r
+	if _, err := io.ReadFull(conn, ivVector); err != nil {
+		log.Fatal(err)
 	}
 
 	password := sha256.Sum256([]byte(l.key))
@@ -148,27 +144,24 @@ func Dial(address string, key string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	conn.SetReadDeadline(time.Now().Add(constants.ConnTimeout))
 
-	ivVector := make([]byte, ivLength)
+	ivVector := make([]byte, constants.IVLength)
 	_, err = rand.Read(ivVector[:])
 
 	if err != nil {
 		return nil, err
 	}
 
-	var wi = 0
-	for wi < ivLength {
-		r, err := conn.Write(ivVector[wi:])
-		if err != nil {
-			return nil, err
-		}
-		wi += r
-	}
 
 	password := sha256.Sum256([]byte(key))
 	longIv := append(password[:], ivVector...)
-
 	hash := sha256.Sum256(longIv)
+
+	buf := bytes.NewBuffer(ivVector)
+	if _, err := io.CopyN(conn, buf,constants.IVLength ); err != nil {
+		log.Fatal(err)
+	}
 
 	var iv [aes.BlockSize]byte
 	copy(iv[:], hash[:aes.BlockSize])

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Randomsock5/tcptunnel/transport"
+	"github.com/Randomsock5/tcptunnel/constants"
 )
 
 var (
@@ -96,13 +97,12 @@ func main() {
 }
 
 func copyAndClose(w, r net.Conn) {
-	buf := make([]byte, 65536)
 	defer w.Close()
 
 	for {
-		r.SetDeadline(time.Now().Add(120 * time.Second))
+		r.SetDeadline(time.Now().Add(constants.CopyBuffTimeout))
 
-		if written, err := io.CopyBuffer(w, r, buf); err != nil || written == 0 {
+		if written, err := io.Copy(w, r); err != nil || written == 0 {
 			break
 		}
 	}
