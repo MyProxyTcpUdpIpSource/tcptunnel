@@ -4,3 +4,4 @@ tt-server/tt-server
 tt-server/tt-server_linux_amd64
 squid/tt-server
 *.exe
+/.idea

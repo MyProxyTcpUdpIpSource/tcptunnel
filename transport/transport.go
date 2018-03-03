@@ -1,4 +1,4 @@
-package encodes
+package transport
 
 import (
 	"crypto/aes"
@@ -55,91 +55,90 @@ func (ac *AESConn) SetWriteDeadline(t time.Time) error {
 }
 
 func NewAESConn(key string, iv [aes.BlockSize]byte, conn net.Conn) (*AESConn, error) {
-	keybin := []byte(key)
+	keyBin := []byte(key)
 	t := time.Now().UTC()
 
-	hashkey := sha256.Sum256(keybin)
+	hashKey := sha256.Sum256(keyBin)
 	salt := sha256.Sum256(
 		[]byte(fmt.Sprintf("%d-%02d-%02d", t.Year(), t.Month(), t.Day())))
 
-	hashsalt := append(hashkey[:], salt[:]...)
+	hashSalt := append(hashKey[:], salt[:]...)
 
-	aeskey := sha256.Sum256(hashsalt)
+	aesKey := sha256.Sum256(hashSalt)
 
-	rblock, err := aes.NewCipher(aeskey[:])
+	rBlock, err := aes.NewCipher(aesKey[:])
 	if err != nil {
 		return nil, err
 	}
 
-	wblock, err := aes.NewCipher(aeskey[:])
+	wBlock, err := aes.NewCipher(aesKey[:])
 	if err != nil {
 		return nil, err
 	}
 
-	rstream := cipher.NewOFB(rblock, iv[:])
-	wstream := cipher.NewOFB(wblock, iv[:])
+	rStream := cipher.NewOFB(rBlock, iv[:])
+	wStream := cipher.NewOFB(wBlock, iv[:])
 
-	aesconn := &AESConn{
+	aesConn := &AESConn{
 		conn: conn,
-		r:    &cipher.StreamReader{S: rstream, R: conn},
-		w:    &cipher.StreamWriter{S: wstream, W: conn},
+		r:    &cipher.StreamReader{S: rStream, R: conn},
+		w:    &cipher.StreamWriter{S: wStream, W: conn},
 	}
-	return aesconn, err
+	return aesConn, err
 }
 
 type Listener struct {
-	netl net.Listener
-	key  string
+	listener net.Listener
+	key      string
 }
 
 func (l *Listener) Accept() (net.Conn, error) {
-	conn, err := l.netl.Accept()
+	conn, err := l.listener.Accept()
 	if err != nil {
 		return nil, err
 	}
 
 	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
-	ivvector := make([]byte, ivLength)
+	ivVector := make([]byte, ivLength)
 	var ri = 0
 	for ri < ivLength {
-		r, _err := conn.Read(ivvector[ri:])
-		if _err != nil {
-			return nil, _err
+		r, err := conn.Read(ivVector[ri:])
+		if err != nil {
+			return nil, err
 		}
 		ri += r
 	}
 
-	passwd := sha256.Sum256([]byte(l.key))
-	longiv := append(passwd[:], ivvector...)
+	password := sha256.Sum256([]byte(l.key))
+	longIv := append(password[:], ivVector...)
 
-	hash := sha256.Sum256(longiv)
+	hash := sha256.Sum256(longIv)
 
 	var iv [aes.BlockSize]byte
 	copy(iv[:], hash[:aes.BlockSize])
 
-	aesconn, err := NewAESConn(l.key, iv, conn)
-
-	return aesconn, err
+	aesConn, err := NewAESConn(l.key, iv, conn)
+	return aesConn, err
 }
 
 func (l *Listener) Close() error {
-	return l.netl.Close()
+	return l.listener.Close()
 }
 
 func (l *Listener) Addr() net.Addr {
-	return l.netl.Addr()
+	return l.listener.Addr()
 }
 
-func Listen(laddr string, key string) (*Listener, error) {
-	netl, err := net.Listen("tcp", laddr)
+func Listen(listenAddress string, key string) (*Listener, error) {
+	listen, err := net.Listen("tcp", listenAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	l := &Listener{
-		netl: netl,
-		key:  key,
+		listener: listen,
+		key:      key,
 	}
 	return l, nil
 }
@@ -150,8 +149,8 @@ func Dial(address string, key string) (net.Conn, error) {
 		return nil, err
 	}
 
-	ivvector := make([]byte, ivLength)
-	_, err = rand.Read(ivvector[:])
+	ivVector := make([]byte, ivLength)
+	_, err = rand.Read(ivVector[:])
 
 	if err != nil {
 		return nil, err
@@ -159,21 +158,21 @@ func Dial(address string, key string) (net.Conn, error) {
 
 	var wi = 0
 	for wi < ivLength {
-		r, _err := conn.Write(ivvector[wi:])
-		if _err != nil {
-			return nil, _err
+		r, err := conn.Write(ivVector[wi:])
+		if err != nil {
+			return nil, err
 		}
 		wi += r
 	}
 
-	passwd := sha256.Sum256([]byte(key))
-	longiv := append(passwd[:], ivvector...)
+	password := sha256.Sum256([]byte(key))
+	longIv := append(password[:], ivVector...)
 
-	hash := sha256.Sum256(longiv)
+	hash := sha256.Sum256(longIv)
 
 	var iv [aes.BlockSize]byte
 	copy(iv[:], hash[:aes.BlockSize])
 
-	aesconn, err := NewAESConn(key, iv, conn)
-	return aesconn, err
+	aesConn, err := NewAESConn(key, iv, conn)
+	return aesConn, err
 }

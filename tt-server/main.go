@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Randomsock5/tcptunnel/encodes"
+	"github.com/Randomsock5/tcptunnel/transport"
 )
 
 var (
@@ -22,13 +22,13 @@ func init() {
 	flag.StringVar(&addr, "server", "", "Set server address")
 	flag.IntVar(&port, "port", 8443, "Set server port")
 	flag.StringVar(&forward, "forward", "127.0.0.1:3128", "Set forward address")
-	flag.StringVar(&password, "password", "asdfghjkl", "Password")
+	flag.StringVar(&password, "password", "4a99a760", "Password")
 }
 
 func main() {
 	flag.Parse()
 
-	l, err := encodes.Listen(addr+":"+strconv.Itoa(port), password)
+	l, err := transport.Listen(addr+":"+strconv.Itoa(port), password)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -41,23 +41,23 @@ func main() {
 			continue
 		}
 
-		go func(aesconn net.Conn) {
-			forwardconn, err := net.Dial("tcp", forward)
+		go func(aesConn net.Conn) {
+			forwardConn, err := net.Dial("tcp", forward)
 			if err != nil {
 				log.Println(err)
-				aesconn.Close()
+				aesConn.Close()
 				return
 			}
 
 			//loop check
-			if aesconn.RemoteAddr().String() == forwardconn.RemoteAddr().String() {
-				aesconn.Close()
-				forwardconn.Close()
+			if aesConn.RemoteAddr().String() == forwardConn.RemoteAddr().String() {
+				aesConn.Close()
+				forwardConn.Close()
 				return
 			}
 
-			go copyAndClose(aesconn, forwardconn)
-			go copyAndClose(forwardconn, aesconn)
+			go copyAndClose(aesConn, forwardConn)
+			go copyAndClose(forwardConn, aesConn)
 		}(conn)
 	}
 }

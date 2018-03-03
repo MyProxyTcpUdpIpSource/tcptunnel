@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Randomsock5/tcptunnel/encodes"
+	"github.com/Randomsock5/tcptunnel/transport"
 )
 
 var (
@@ -30,7 +30,7 @@ func init() {
 	flag.StringVar(&localAddr, "local", "", "Set local address")
 	flag.IntVar(&localPort, "localPort", 8088, "Set local port")
 	flag.StringVar(&pac, "pac", "./pac.txt", "Set pac path")
-	flag.StringVar(&password, "password", "asdfghjkl", "Password")
+	flag.StringVar(&password, "password", "4a99a760", "Password")
 }
 
 func main() {
@@ -42,21 +42,21 @@ func main() {
 			log.Println("Can not read file: " + pac)
 		}
 
-		pacport := localPort + 1
+		pacPort := localPort + 1
 		s := string(b[:])
 		if localAddr != "" {
 			s = strings.Replace(s, "__PROXY__", "PROXY "+localAddr+":"+strconv.Itoa(localPort)+";", 1)
-			log.Println("pac uri: " + localAddr + ":" + strconv.Itoa(pacport) + "/pac")
+			log.Println("pac uri: " + localAddr + ":" + strconv.Itoa(pacPort) + "/pac")
 		} else {
 			s = strings.Replace(s, "__PROXY__", "PROXY 127.0.0.1:"+strconv.Itoa(localPort)+";", 1)
-			log.Println("pac uri: 127.0.0.1:" + strconv.Itoa(pacport) + "/pac")
+			log.Println("pac uri: 127.0.0.1:" + strconv.Itoa(pacPort) + "/pac")
 		}
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("/pac", func(w http.ResponseWriter, r *http.Request) {
 			io.WriteString(w, s)
 		})
-		go http.ListenAndServe(localAddr+":"+strconv.Itoa(pacport), mux)
+		go http.ListenAndServe(localAddr+":"+strconv.Itoa(pacPort), mux)
 	} else {
 		log.Println("Can not find file: " + pac)
 	}
@@ -75,7 +75,7 @@ func main() {
 		}
 
 		go func(c net.Conn) {
-			aesconn, err := encodes.Dial(addr+":"+strconv.Itoa(port), password)
+			aesConn, err := transport.Dial(addr+":"+strconv.Itoa(port), password)
 			if err != nil {
 				log.Println(err)
 				c.Close()
@@ -83,14 +83,14 @@ func main() {
 			}
 
 			//loop check
-			if c.RemoteAddr().String() == aesconn.RemoteAddr().String() {
-				aesconn.Close()
+			if c.RemoteAddr().String() == aesConn.RemoteAddr().String() {
+				aesConn.Close()
 				c.Close()
 				return
 			}
 
-			go copyAndClose(aesconn, c)
-			go copyAndClose(c, aesconn)
+			go copyAndClose(aesConn, c)
+			go copyAndClose(c, aesConn)
 		}(conn)
 	}
 }
@@ -108,7 +108,7 @@ func copyAndClose(w, r net.Conn) {
 	}
 }
 
-func exist(filepath string) bool {
-	_, err := os.Stat(filepath)
+func exist(filePath string) bool {
+	_, err := os.Stat(filePath)
 	return err == nil || os.IsExist(err)
 }
