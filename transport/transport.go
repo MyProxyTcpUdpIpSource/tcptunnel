@@ -98,7 +98,6 @@ func (l *Listener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn.SetReadDeadline(time.Now().Add(constants.ConnTimeout))
 
 	ivVector := make([]byte, constants.IVLength)
 
@@ -144,7 +143,6 @@ func Dial(address string, key string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn.SetReadDeadline(time.Now().Add(constants.ConnTimeout))
 
 	ivVector := make([]byte, constants.IVLength)
 	_, err = rand.Read(ivVector[:])

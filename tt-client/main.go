@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/Randomsock5/tcptunnel/transport"
-	"github.com/Randomsock5/tcptunnel/constants"
+	"github.com/Randomsock5/tcptunnel/github.com/xtaci/smux/smux"
 )
 
 var (
@@ -68,6 +68,7 @@ func main() {
 	}
 	defer localServer.Close()
 
+	handleCh := clientCreate()
 	for {
 		conn, err := localServer.Accept()
 		if err != nil {
@@ -75,34 +76,73 @@ func main() {
 			continue
 		}
 
-		go func(c net.Conn) {
-			aesConn, err := transport.Dial(addr+":"+strconv.Itoa(port), password)
+		handleCh <- conn
+	}
+
+	close(handleCh)
+}
+
+func clientCreate() chan net.Conn {
+	input := make(chan net.Conn)
+	go clientHandle(input)
+	return input
+}
+
+
+func clientHandle(input chan net.Conn){
+	var transportUp = false
+	var session *smux.Session
+	var stream *smux.Stream
+	var aesConn net.Conn
+	var err error
+
+	smuxConfig := &smux.Config{
+		KeepAliveInterval: 10 * time.Second,
+		KeepAliveTimeout:  30 * time.Second,
+		MaxFrameSize:      4096,
+		MaxReceiveBuffer:  4194304,
+	}
+
+	for conn := range input {
+		if !transportUp {
+			aesConn, err = transport.Dial(addr+":"+strconv.Itoa(port), password)
 			if err != nil {
 				log.Println(err)
-				c.Close()
-				return
+				conn.Close()
+				continue
+			}
+			session, err = smux.Client(aesConn, smuxConfig)
+			if err != nil {
+				log.Println(err)
+				conn.Close()
+				continue
+			}
+			transportUp = true
+		} else {
+			stream, err = session.OpenStream()
+			if err != nil {
+				log.Println(err)
+				conn.Close()
+				if session.IsClosed() {
+					aesConn.Close()
+					transportUp = false
+				}
+				continue
 			}
 
-			//loop check
-			if c.RemoteAddr().String() == aesConn.RemoteAddr().String() {
-				aesConn.Close()
-				c.Close()
-				return
-			}
-
-			go copyAndClose(aesConn, c)
-			go copyAndClose(c, aesConn)
-		}(conn)
+			go copyAndClose(stream, conn)
+			go copyAndClose(conn, stream)
+		}
 	}
 }
 
 func copyAndClose(w, r net.Conn) {
 	defer w.Close()
-
 	for {
-		r.SetDeadline(time.Now().Add(constants.CopyBuffTimeout))
+		buf := make([]byte, 64)
 
-		if written, err := io.Copy(w, r); err != nil || written == 0 {
+		// written == 0 fix cpu profile bug
+		if written, err := io.CopyBuffer(w, r, buf); err != nil || written ==0 {
 			break
 		}
 	}
