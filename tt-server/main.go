@@ -1,33 +1,29 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
-	"io"
+	"fmt"
+	pb "github.com/Randomsock5/tcptunnel/proto"
+	"github.com/Randomsock5/tcptunnel/transport"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"io/ioutil"
 	"log"
 	"net"
-	"strconv"
-	"time"
-
-	"github.com/Randomsock5/tcptunnel/transport"
-	"github.com/Randomsock5/tcptunnel/github.com/xtaci/smux/smux"
-
 	"net/http"
-	_ "net/http/pprof"
 )
 
 var (
-	addr     string
-	port     int
-	forward  string
-	password string
-)
+	addr    = flag.String("server", "", "Set server address")
+	port    = flag.Int("port", 8443, "Set server port")
+	forward = flag.String("forward", "127.0.0.1:3128", "Set forward address")
 
-func init() {
-	flag.StringVar(&addr, "server", "", "Set server address")
-	flag.IntVar(&port, "port", 8443, "Set server port")
-	flag.StringVar(&forward, "forward", "127.0.0.1:3128", "Set forward address")
-	flag.StringVar(&password, "password", "4a99a760", "Password")
-}
+	certFile = flag.String("cert_file", "", "The TLS cert file")
+	keyFile  = flag.String("key_file", "", "The TLS key file")
+	caFile   = flag.String("key_file", "", "The TLS ca file")
+)
 
 func main() {
 	flag.Parse()
@@ -36,72 +32,34 @@ func main() {
 		log.Println(http.ListenAndServe(":8080", nil))
 	}()
 
-	listen, err := transport.Listen(addr+":"+strconv.Itoa(port), password)
+	listen, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *addr, *port))
 	if err != nil {
 		log.Fatalln(err)
 		return
 	}
 	defer listen.Close()
 
-	smuxConfig := &smux.Config{
-		KeepAliveInterval: 10 * time.Second,
-		KeepAliveTimeout:  30 * time.Second,
-		MaxFrameSize:      4096,
-		MaxReceiveBuffer:  4194304,
+	var opts []grpc.ServerOption
+	cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+	caCert, err := ioutil.ReadFile(*caFile)
+	if err != nil {
+		log.Fatalf("read ca cert file error:%v", err)
+		return
 	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+	ta := credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    caCertPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ServerName:   "Unknown",
+		MinVersion:   tls.VersionTLS12,
+		MaxVersion:   tls.VersionTLS12,
+	})
+	opts = []grpc.ServerOption{grpc.Creds(ta)}
 
-	for {
-		conn, err := listen.Accept()
-		if err != nil {
-			log.Println(err)
-			continue
-		}
+	grpcServer := grpc.NewServer(opts...)
+	pb.RegisterProxyServiceServer(grpcServer, transport.NewServer(*forward))
 
-		session, err := smux.Server(conn, smuxConfig)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		go handleSession(session)
-	}
-}
-
-func handleSession(session *smux.Session){
-	for {
-		stream, err := session.AcceptStream()
-		if err != nil {
-			continue
-		}
-
-		go func(conn net.Conn) {
-			forwardConn, err := net.Dial("tcp", forward)
-			if err != nil {
-				log.Println(err)
-				conn.Close()
-				return
-			}
-
-			//loop check
-			if conn.RemoteAddr().String() == forwardConn.RemoteAddr().String() {
-				conn.Close()
-				forwardConn.Close()
-				return
-			}
-
-			go copyAndClose(conn, forwardConn)
-			go copyAndClose(forwardConn, conn)
-		}(stream)
-	}
-}
-
-func copyAndClose(w, r net.Conn) {
-	defer w.Close()
-	for {
-		buf := make([]byte, 64)
-
-		// written == 0 fix cpu profile bug
-		if written, err := io.CopyBuffer(w, r, buf); err != nil || written ==0 {
-			break
-		}
-	}
+	grpcServer.Serve(listen)
 }

@@ -1,7 +1,14 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
+	"fmt"
+	pb "github.com/Randomsock5/tcptunnel/proto"
+	"github.com/Randomsock5/tcptunnel/transport"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"io"
 	"io/ioutil"
 	"log"
@@ -10,141 +17,85 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/Randomsock5/tcptunnel/transport"
-	"github.com/Randomsock5/tcptunnel/github.com/xtaci/smux/smux"
 )
 
 var (
-	addr      string
-	port      int
-	localAddr string
-	localPort int
-	password  string
-	pac       string
-)
+	addr      = flag.String("server", "", "Set server address")
+	port      = flag.Int("port", 8443, "Set server port")
+	localAddr = flag.String("local", "", "Set local address")
+	localPort = flag.Int("localPort", 8088, "Set local port")
+	pac       = flag.String("pac", "./pac.txt", "Set pac path")
 
-func init() {
-	flag.StringVar(&addr, "server", "", "Set server address")
-	flag.IntVar(&port, "port", 8443, "Set server port")
-	flag.StringVar(&localAddr, "local", "", "Set local address")
-	flag.IntVar(&localPort, "localPort", 8088, "Set local port")
-	flag.StringVar(&pac, "pac", "./pac.txt", "Set pac path")
-	flag.StringVar(&password, "password", "4a99a760", "Password")
-}
+	certFile = flag.String("cert_file", "", "The TLS cert file")
+	keyFile  = flag.String("key_file", "", "The TLS key file")
+	caFile   = flag.String("key_file", "", "The TLS ca file")
+)
 
 func main() {
 	flag.Parse()
 
-	if exist(pac) {
-		b, err := ioutil.ReadFile(pac)
+	if exist(*pac) {
+		b, err := ioutil.ReadFile(*pac)
 		if err != nil {
-			log.Println("Can not read file: " + pac)
+			log.Println("Can not read file: " + *pac)
 		}
 
-		pacPort := localPort + 1
+		pacPort := *localPort + 1
 		s := string(b[:])
-		if localAddr != "" {
-			s = strings.Replace(s, "__PROXY__", "PROXY "+localAddr+":"+strconv.Itoa(localPort)+";", 1)
-			log.Println("pac uri: " + localAddr + ":" + strconv.Itoa(pacPort) + "/pac")
+		if *localAddr != "" {
+			s = strings.Replace(s, "__PROXY__", "PROXY "+*localAddr+":"+strconv.Itoa(*localPort)+";", 1)
+			log.Printf("pac uri: %s:%d/pac\n", *localAddr, pacPort)
 		} else {
-			s = strings.Replace(s, "__PROXY__", "PROXY 127.0.0.1:"+strconv.Itoa(localPort)+";", 1)
-			log.Println("pac uri: 127.0.0.1:" + strconv.Itoa(pacPort) + "/pac")
+			s = strings.Replace(s, "__PROXY__", "PROXY 127.0.0.1:"+strconv.Itoa(*localPort)+";", 1)
+			log.Printf("pac uri: 127.0.0.1:%d/pac \n", pacPort)
 		}
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("/pac", func(w http.ResponseWriter, r *http.Request) {
 			io.WriteString(w, s)
 		})
-		go http.ListenAndServe(localAddr+":"+strconv.Itoa(pacPort), mux)
+		go http.ListenAndServe(fmt.Sprintf("%s:%d", *localAddr, *port), mux)
 	} else {
-		log.Println("Can not find file: " + pac)
+		log.Println("Can not find file: " + *pac)
 	}
 
-	localServer, err := net.Listen("tcp", localAddr+":"+strconv.Itoa(localPort))
+	localServer, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *localAddr, *localPort))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer localServer.Close()
 
-	handleCh := clientCreate()
+	peerCert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+	if err != nil {
+		log.Fatalf("load peer cert/key error:%v", err)
+		return
+	}
+	caCert, err := ioutil.ReadFile(*caFile)
+	if err != nil {
+		log.Fatalf("read ca cert file error:%v", err)
+		return
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	ta := credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{peerCert},
+		RootCAs:      caCertPool,
+		ServerName:   "Unknown",
+		MinVersion:   tls.VersionTLS12,
+		MaxVersion:   tls.VersionTLS12,
+	})
+
 	for {
-		conn, err := localServer.Accept()
+		sources, err := localServer.Accept()
 		if err != nil {
 			log.Println(err)
 			continue
 		}
+		conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(ta))
+		client := pb.NewProxyServiceClient(conn)
 
-		handleCh <- conn
-	}
-
-	close(handleCh)
-}
-
-func clientCreate() chan net.Conn {
-	input := make(chan net.Conn)
-	go clientHandle(input)
-	return input
-}
-
-
-func clientHandle(input chan net.Conn){
-	var transportUp = false
-	var session *smux.Session
-	var stream *smux.Stream
-	var aesConn net.Conn
-	var err error
-
-	smuxConfig := &smux.Config{
-		KeepAliveInterval: 10 * time.Second,
-		KeepAliveTimeout:  30 * time.Second,
-		MaxFrameSize:      4096,
-		MaxReceiveBuffer:  4194304,
-	}
-
-	for conn := range input {
-		if !transportUp {
-			aesConn, err = transport.Dial(addr+":"+strconv.Itoa(port), password)
-			if err != nil {
-				log.Println(err)
-				conn.Close()
-				continue
-			}
-			session, err = smux.Client(aesConn, smuxConfig)
-			if err != nil {
-				log.Println(err)
-				conn.Close()
-				continue
-			}
-			transportUp = true
-		} else {
-			stream, err = session.OpenStream()
-			if err != nil {
-				log.Println(err)
-				conn.Close()
-				if session.IsClosed() {
-					aesConn.Close()
-					transportUp = false
-				}
-				continue
-			}
-
-			go copyAndClose(stream, conn)
-			go copyAndClose(conn, stream)
-		}
-	}
-}
-
-func copyAndClose(w, r net.Conn) {
-	defer w.Close()
-	for {
-		buf := make([]byte, 64)
-
-		// written == 0 fix cpu profile bug
-		if written, err := io.CopyBuffer(w, r, buf); err != nil || written ==0 {
-			break
-		}
+		go transport.ClientProxyService(sources, client)
 	}
 }
 

@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package proto;
+
+message Payload {
+  bytes data = 1;
+}
+
+service ProxyService {
+    rpc Stream(stream Payload) returns (stream Payload) {}
+}
