@@ -26,9 +26,9 @@ var (
 	localPort = flag.Int("localPort", 8088, "Set local port")
 	pac       = flag.String("pac", "./pac.txt", "Set pac path")
 
-	certFile = flag.String("cert_file", "", "The TLS cert file")
-	keyFile  = flag.String("key_file", "", "The TLS key file")
-	caFile   = flag.String("key_file", "", "The TLS ca file")
+	certFile = flag.String("cert_file", "client2server.crt", "The TLS cert file")
+	keyFile  = flag.String("key_file", "client.key", "The TLS key file")
+	caFile   = flag.String("ca_file", "ca.crt", "The TLS ca file")
 )
 
 func main() {
@@ -65,11 +65,6 @@ func main() {
 	}
 	defer localServer.Close()
 
-	peerCert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
-	if err != nil {
-		log.Fatalf("load peer cert/key error:%v", err)
-		return
-	}
 	caCert, err := ioutil.ReadFile(*caFile)
 	if err != nil {
 		log.Fatalf("read ca cert file error:%v", err)
@@ -78,8 +73,14 @@ func main() {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
+	cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+	if err != nil {
+		log.Fatalf("load peer cert/key error:%v", err)
+		return
+	}
+
 	ta := credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{peerCert},
+		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
 		ServerName:   "Unknown",
 		MinVersion:   tls.VersionTLS12,
@@ -92,7 +93,12 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(ta))
+
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", *addr, *port), grpc.WithTransportCredentials(ta))
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 		client := pb.NewProxyServiceClient(conn)
 
 		go transport.ClientProxyService(sources, client)

@@ -20,9 +20,9 @@ var (
 	port    = flag.Int("port", 8443, "Set server port")
 	forward = flag.String("forward", "127.0.0.1:3128", "Set forward address")
 
-	certFile = flag.String("cert_file", "", "The TLS cert file")
-	keyFile  = flag.String("key_file", "", "The TLS key file")
-	caFile   = flag.String("key_file", "", "The TLS ca file")
+	certFile = flag.String("cert_file", "server2client.crt", "The TLS cert file")
+	keyFile  = flag.String("key_file", "server.key", "The TLS key file")
+	caFile   = flag.String("ca_file", "ca.crt", "The TLS ca file")
 )
 
 func main() {
@@ -40,7 +40,7 @@ func main() {
 	defer listen.Close()
 
 	var opts []grpc.ServerOption
-	cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+
 	caCert, err := ioutil.ReadFile(*caFile)
 	if err != nil {
 		log.Fatalf("read ca cert file error:%v", err)
@@ -48,6 +48,8 @@ func main() {
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
+
+	cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
 	ta := credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    caCertPool,
