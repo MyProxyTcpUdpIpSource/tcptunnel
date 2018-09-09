@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	pb "github.com/Randomsock5/tcptunnel/proto"
-	"io"
 	"log"
 	"net"
 	"time"
@@ -16,18 +15,12 @@ func handleErr(err error) {
 	}
 }
 
-func handleEOF(err error, ch chan error) {
-	if err == io.EOF {
-		close(ch)
-		panic(nil)
-	}
-}
-
 func recoverHandle(ch chan error) {
 	if rec := recover(); rec != nil {
 		err := rec.(error)
 		ch <- err
 	}
+	close(ch)
 }
 
 type proxyService struct {
@@ -43,6 +36,8 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 	defer forwardConn.Close()
 	wait1 := make(chan error)
 	wait2 := make(chan error)
+	defer close(wait1)
+	defer close(wait2)
 
 	//
 	go func() {
@@ -51,14 +46,12 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 		for {
 			buf := make([]byte, 768)
 			i, err := forwardConn.Read(buf)
-			handleEOF(err, wait1)
 			handleErr(err)
 
 			var payload pb.Payload
 			payload.Data = buf[:i]
 
 			err = stream.Send(&payload)
-			handleEOF(err, wait1)
 			handleErr(err)
 		}
 	}()
@@ -69,16 +62,13 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 
 		for {
 			payload, err := stream.Recv()
-			handleEOF(err, wait2)
 			handleErr(err)
 
 			data := payload.GetData()
 			_, err = writeBuff.Write(data)
-			handleEOF(err, wait2)
 			handleErr(err)
 
 			err = writeBuff.Flush()
-			handleEOF(err, wait2)
 			handleErr(err)
 		}
 	}()
@@ -109,6 +99,8 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 	defer conn.Close()
 	wait1 := make(chan error)
 	wait2 := make(chan error)
+	defer close(wait1)
+	defer close(wait2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -119,21 +111,18 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 	}
 	defer stream.CloseSend()
 
-	//
 	go func() {
 		defer recoverHandle(wait1)
 
 		for {
 			buf := make([]byte, 768)
 			i, err := conn.Read(buf)
-			handleEOF(err, wait1)
 			handleErr(err)
 
 			var payload pb.Payload
 			payload.Data = buf[:i]
 
 			err = stream.Send(&payload)
-			handleEOF(err, wait1)
 			handleErr(err)
 		}
 	}()
@@ -144,16 +133,13 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 
 		for {
 			payload, err := stream.Recv()
-			handleEOF(err, wait2)
 			handleErr(err)
 
 			data := payload.GetData()
 			_, err = writeBuff.Write(data)
-			handleEOF(err, wait2)
 			handleErr(err)
 
 			err = writeBuff.Flush()
-			handleEOF(err, wait2)
 			handleErr(err)
 		}
 	}()
