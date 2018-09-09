@@ -93,19 +93,18 @@ func main() {
 		MaxVersion:   tls.VersionTLS12,
 	})
 
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", *addr, *port), grpc.WithTransportCredentials(ta))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	client := pb.NewProxyServiceClient(conn)
+
 	for {
 		sources, err := localServer.Accept()
 		if err != nil {
 			log.Println(err)
 			continue
 		}
-
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", *addr, *port), grpc.WithTransportCredentials(ta))
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		client := pb.NewProxyServiceClient(conn)
 
 		go transport.ClientProxyService(sources, client)
 	}

@@ -5,3 +5,9 @@ tt-server/tt-server_linux_amd64
 squid/tt-server
 *.exe
 /.idea
+tt-client/ca.crt
+tt-client/client.key
+tt-client/client2server.crt
+tt-server/ca.crt
+tt-server/server.key
+tt-server/server2client.crt
