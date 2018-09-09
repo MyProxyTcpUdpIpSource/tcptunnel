@@ -20,7 +20,7 @@ func handleErr(err error) {
 func recoverHandle() {
 	if rec := recover(); rec != nil {
 		err := rec.(error)
-		log.Fatalln(err)
+		log.Println(err)
 	}
 }
 
