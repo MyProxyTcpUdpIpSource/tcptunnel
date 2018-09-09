@@ -10,6 +10,26 @@ import (
 	"time"
 )
 
+func handleErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func handleEOF(err error, ch chan error) {
+	if err == io.EOF {
+		close(ch)
+		panic(nil)
+	}
+}
+
+func recoverHandle(ch chan error) {
+	if rec := recover(); rec != nil {
+		err := rec.(error)
+		ch <- err
+	}
+}
+
 type proxyService struct {
 	forward string
 }
@@ -26,52 +46,40 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 
 	//
 	go func() {
+		defer recoverHandle(wait1)
+
 		for {
 			buf := make([]byte, 768)
 			i, err := forwardConn.Read(buf)
-			if err == io.EOF {
-				close(wait1)
-				return
-			}
-
-			if err != nil {
-				wait1 <- err
-				return
-			}
+			handleEOF(err, wait1)
+			handleErr(err)
 
 			var payload pb.Payload
 			payload.Data = buf[:i]
 
-			stream.Send(&payload)
+			err = stream.Send(&payload)
+			handleEOF(err, wait1)
+			handleErr(err)
 		}
 	}()
 
 	go func() {
+		defer recoverHandle(wait2)
 		writeBuff := bufio.NewWriter(forwardConn)
 
 		for {
 			payload, err := stream.Recv()
-			if err == io.EOF {
-				close(wait2)
-				return
-			}
-			if err != nil {
-				wait2 <- err
-				return
-			}
+			handleEOF(err, wait2)
+			handleErr(err)
 
 			data := payload.GetData()
 			_, err = writeBuff.Write(data)
-			writeBuff.Flush()
+			handleEOF(err, wait2)
+			handleErr(err)
 
-			if err == io.EOF {
-				close(wait2)
-				return
-			}
-			if err != nil {
-				wait2 <- err
-				return
-			}
+			err = writeBuff.Flush()
+			handleEOF(err, wait2)
+			handleErr(err)
 		}
 	}()
 
@@ -113,52 +121,40 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 
 	//
 	go func() {
+		defer recoverHandle(wait1)
+
 		for {
 			buf := make([]byte, 768)
 			i, err := conn.Read(buf)
-			if err == io.EOF {
-				close(wait1)
-				return
-			}
-
-			if err != nil {
-				wait1 <- err
-				return
-			}
+			handleEOF(err, wait1)
+			handleErr(err)
 
 			var payload pb.Payload
 			payload.Data = buf[:i]
 
-			stream.Send(&payload)
+			err = stream.Send(&payload)
+			handleEOF(err, wait1)
+			handleErr(err)
 		}
 	}()
 
 	go func() {
+		defer recoverHandle(wait2)
 		writeBuff := bufio.NewWriter(conn)
 
 		for {
 			payload, err := stream.Recv()
-			if err == io.EOF {
-				close(wait2)
-				return
-			}
-			if err != nil {
-				wait2 <- err
-				return
-			}
+			handleEOF(err, wait2)
+			handleErr(err)
 
 			data := payload.GetData()
 			_, err = writeBuff.Write(data)
-			writeBuff.Flush()
+			handleEOF(err, wait2)
+			handleErr(err)
 
-			if err == io.EOF {
-				close(wait2)
-				return
-			}
-			if err != nil {
-				wait2 <- err
-				return
-			}
+			err = writeBuff.Flush()
+			handleEOF(err, wait2)
+			handleErr(err)
 		}
 	}()
 

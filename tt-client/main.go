@@ -17,6 +17,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	_ "net/http/pprof"
 )
 
 var (
@@ -33,6 +35,10 @@ var (
 
 func main() {
 	flag.Parse()
+
+	go func() {
+		log.Println(http.ListenAndServe(":9081", nil))
+	}()
 
 	if exist(*pac) {
 		b, err := ioutil.ReadFile(*pac)

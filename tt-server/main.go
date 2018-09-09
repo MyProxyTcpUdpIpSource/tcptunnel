@@ -13,6 +13,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+
+	_ "net/http/pprof"
 )
 
 var (
@@ -29,7 +31,7 @@ func main() {
 	flag.Parse()
 
 	go func() {
-		log.Println(http.ListenAndServe(":8080", nil))
+		log.Println(http.ListenAndServe(":9080", nil))
 	}()
 
 	listen, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *addr, *port))
