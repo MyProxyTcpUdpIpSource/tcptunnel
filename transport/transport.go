@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"time"
+
+	"sync"
 )
 
 func handleErr(err error) {
@@ -15,12 +17,11 @@ func handleErr(err error) {
 	}
 }
 
-func recoverHandle(ch chan error) {
+func recoverHandle() {
 	if rec := recover(); rec != nil {
 		err := rec.(error)
-		ch <- err
+		log.Fatalln(err)
 	}
-	close(ch)
 }
 
 type proxyService struct {
@@ -34,14 +35,11 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 		return err
 	}
 	defer forwardConn.Close()
-	wait1 := make(chan error)
-	wait2 := make(chan error)
-	defer close(wait1)
-	defer close(wait2)
+	wg := &sync.WaitGroup{}
 
-	//
 	go func() {
-		defer recoverHandle(wait1)
+		defer wg.Done()
+		defer recoverHandle()
 
 		for {
 			buf := make([]byte, 768)
@@ -57,7 +55,8 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 	}()
 
 	go func() {
-		defer recoverHandle(wait2)
+		defer recoverHandle()
+		defer wg.Done()
 		writeBuff := bufio.NewWriter(forwardConn)
 
 		for {
@@ -73,19 +72,8 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 		}
 	}()
 
-	select {
-	case err = <-wait1:
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-	case err = <-wait2:
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-	}
+	wg.Add(2)
+	wg.Wait()
 
 	return nil
 }
@@ -97,8 +85,6 @@ func NewServer(forward string) pb.ProxyServiceServer {
 
 func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 	defer conn.Close()
-	wait1 := make(chan error)
-	wait2 := make(chan error)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -108,9 +94,11 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 		return
 	}
 	defer stream.CloseSend()
+	wg := &sync.WaitGroup{}
 
 	go func() {
-		defer recoverHandle(wait1)
+		defer recoverHandle()
+		defer wg.Done()
 
 		for {
 			buf := make([]byte, 768)
@@ -126,7 +114,8 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 	}()
 
 	go func() {
-		defer recoverHandle(wait2)
+		defer recoverHandle()
+		defer wg.Done()
 		writeBuff := bufio.NewWriter(conn)
 
 		for {
@@ -142,19 +131,8 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 		}
 	}()
 
-	select {
-	case err = <-wait1:
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-	case err = <-wait2:
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	}
+	wg.Add(2)
+	wg.Wait()
 
 	return
 }
