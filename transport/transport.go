@@ -99,8 +99,6 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 	defer conn.Close()
 	wait1 := make(chan error)
 	wait2 := make(chan error)
-	defer close(wait1)
-	defer close(wait2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
