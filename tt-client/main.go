@@ -54,7 +54,7 @@ func main() {
 		mux.HandleFunc("/pac", func(w http.ResponseWriter, r *http.Request) {
 			io.WriteString(w, s)
 		})
-		go http.ListenAndServe(fmt.Sprintf("%s:%d", *localAddr, *port), mux)
+		go http.ListenAndServe(fmt.Sprintf("%s:%d", *localAddr, pacPort), mux)
 	} else {
 		log.Println("Can not find file: " + *pac)
 	}
