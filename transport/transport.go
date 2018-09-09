@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	pb "github.com/Randomsock5/tcptunnel/proto"
+	"io"
 	"log"
 	"net"
 	"time"
@@ -20,7 +21,9 @@ func handleErr(err error) {
 func recoverHandle() {
 	if rec := recover(); rec != nil {
 		err := rec.(error)
-		log.Println(err)
+		if err != io.EOF {
+			log.Println(err)
+		}
 	}
 }
 
