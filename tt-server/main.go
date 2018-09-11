@@ -5,14 +5,15 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	pb "github.com/Randomsock5/tcptunnel/proto"
-	"github.com/Randomsock5/tcptunnel/transport"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+
+	pb "github.com/Randomsock5/tcptunnel/proto"
+	"github.com/Randomsock5/tcptunnel/transport"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	_ "net/http/pprof"
 )
@@ -52,13 +53,29 @@ func main() {
 	caCertPool.AppendCertsFromPEM(caCert)
 
 	cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+	if err != nil {
+		log.Fatalf("read ca cert file error:%v", err)
+		return
+	}
+
 	ta := credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    caCertPool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ServerName:   "Unknown",
 		MinVersion:   tls.VersionTLS12,
-		MaxVersion:   tls.VersionTLS12,
+		CurvePreferences: []tls.CurveID{
+			tls.CurveP521,
+			tls.CurveP384,
+			tls.CurveP256,
+		},
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+		},
+		PreferServerCipherSuites:    true,
+		DynamicRecordSizingDisabled: false,
 	})
 	opts = []grpc.ServerOption{grpc.Creds(ta)}
 

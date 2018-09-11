@@ -5,10 +5,6 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	pb "github.com/Randomsock5/tcptunnel/proto"
-	"github.com/Randomsock5/tcptunnel/transport"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"io"
 	"io/ioutil"
 	"log"
@@ -17,6 +13,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	pb "github.com/Randomsock5/tcptunnel/proto"
+	"github.com/Randomsock5/tcptunnel/transport"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	_ "net/http/pprof"
 )
@@ -85,12 +86,25 @@ func main() {
 		return
 	}
 
+	sessionCache := tls.NewLRUClientSessionCache(64)
 	ta := credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
 		ServerName:   "Unknown",
 		MinVersion:   tls.VersionTLS12,
-		MaxVersion:   tls.VersionTLS12,
+		CurvePreferences: []tls.CurveID{
+			tls.CurveP521,
+			tls.CurveP384,
+			tls.CurveP256,
+		},
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+		},
+		PreferServerCipherSuites:    true,
+		ClientSessionCache:          sessionCache,
+		DynamicRecordSizingDisabled: false,
 	})
 
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", *addr, *port), grpc.WithTransportCredentials(ta))
