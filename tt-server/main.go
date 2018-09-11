@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	pb "github.com/Randomsock5/tcptunnel/proto"
 	"github.com/Randomsock5/tcptunnel/transport"
@@ -41,8 +42,6 @@ func main() {
 		return
 	}
 	defer listen.Close()
-
-	var opts []grpc.ServerOption
 
 	caCert, err := ioutil.ReadFile(*caFile)
 	if err != nil {
@@ -77,7 +76,12 @@ func main() {
 		PreferServerCipherSuites:    true,
 		DynamicRecordSizingDisabled: false,
 	})
-	opts = []grpc.ServerOption{grpc.Creds(ta)}
+
+	var opts []grpc.ServerOption
+	opts = []grpc.ServerOption{
+		grpc.Creds(ta),
+		grpc.ConnectionTimeout(30 * time.Second),
+	}
 
 	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterProxyServiceServer(grpcServer, transport.NewServer(*forward))

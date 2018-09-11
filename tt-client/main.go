@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	pb "github.com/Randomsock5/tcptunnel/proto"
 	"github.com/Randomsock5/tcptunnel/transport"
@@ -107,7 +108,15 @@ func main() {
 		DynamicRecordSizingDisabled: false,
 	})
 
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", *addr, *port), grpc.WithTransportCredentials(ta))
+	var opts []grpc.DialOption
+	opts = []grpc.DialOption{
+		grpc.WithTransportCredentials(ta),
+		grpc.WithTimeout(30 * time.Second),
+	}
+
+	conn, err := grpc.Dial(
+		fmt.Sprintf("%s:%d", *addr, *port),
+		opts...)
 	if err != nil {
 		log.Fatalln(err)
 	}
