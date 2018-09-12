@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"time"
 
@@ -20,9 +19,10 @@ import (
 )
 
 var (
-	addr    = flag.String("server", "", "Set server address")
-	port    = flag.Int("port", 8443, "Set server port")
-	forward = flag.String("forward", "127.0.0.1:3128", "Set forward address")
+	addr     = flag.String("server", "", "Set server address")
+	port     = flag.Int("port", 8443, "Set server port")
+	forward  = flag.String("forward", "127.0.0.1:3128", "Set forward address")
+	password = flag.String("password", "password", "password")
 
 	certFile = flag.String("cert_file", "server2client.crt", "The TLS cert file")
 	keyFile  = flag.String("key_file", "server.key", "The TLS key file")
@@ -36,7 +36,7 @@ func main() {
 		log.Println(http.ListenAndServe(":9080", nil))
 	}()
 
-	listen, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *addr, *port))
+	listen, err := transport.Listen(fmt.Sprintf("%s:%d", *addr, *port), *password)
 	if err != nil {
 		log.Fatalln(err)
 		return

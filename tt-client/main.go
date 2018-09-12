@@ -24,11 +24,12 @@ import (
 )
 
 var (
-	addr      = flag.String("server", "", "Set server address")
+	addr      = flag.String("server", "127.0.0.1", "Set server address")
 	port      = flag.Int("port", 8443, "Set server port")
 	localAddr = flag.String("local", "", "Set local address")
 	localPort = flag.Int("localPort", 8088, "Set local port")
 	pac       = flag.String("pac", "./pac.txt", "Set pac path")
+	password  = flag.String("password", "password", "password")
 
 	certFile = flag.String("cert_file", "client2server.crt", "The TLS cert file")
 	keyFile  = flag.String("key_file", "client.key", "The TLS key file")
@@ -39,7 +40,7 @@ func main() {
 	flag.Parse()
 
 	go func() {
-		log.Println(http.ListenAndServe(":9081", nil))
+		log.Println(http.ListenAndServe(":9082", nil))
 	}()
 
 	if exist(*pac) {
@@ -111,7 +112,10 @@ func main() {
 	var opts []grpc.DialOption
 	opts = []grpc.DialOption{
 		grpc.WithTransportCredentials(ta),
-		grpc.WithTimeout(30 * time.Second),
+		grpc.WithDialer(func(addr string, duration time.Duration) (net.Conn, error) {
+			aesConn, err := transport.Dial(addr, *password, duration)
+			return aesConn, err
+		}),
 	}
 
 	conn, err := grpc.Dial(
