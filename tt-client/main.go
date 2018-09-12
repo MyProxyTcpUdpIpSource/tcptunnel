@@ -40,33 +40,32 @@ func main() {
 	flag.Parse()
 
 	go func() {
-		log.Println(http.ListenAndServe(fmt.Sprintf("%s:%d", *localAddr, *localPort+1), nil))
-	}()
-
-	if exist(*pac) {
-		b, err := ioutil.ReadFile(*pac)
-		if err != nil {
-			log.Println("Can not read file: " + *pac)
-		}
-
 		pacPort := *localPort + 1
-		s := string(b[:])
-		if *localAddr != "" {
-			s = strings.Replace(s, "__PROXY__", "PROXY "+*localAddr+":"+strconv.Itoa(*localPort)+";", 1)
-			log.Printf("pac uri: %s:%d/pac\n", *localAddr, pacPort)
+
+		if exist(*pac) {
+			b, err := ioutil.ReadFile(*pac)
+			if err != nil {
+				log.Println("Can not read file: " + *pac)
+			}
+
+			s := string(b[:])
+			if *localAddr != "" {
+				s = strings.Replace(s, "__PROXY__", "PROXY "+*localAddr+":"+strconv.Itoa(*localPort)+";", 1)
+				log.Printf("pac uri: %s:%d/pac\n", *localAddr, pacPort)
+			} else {
+				s = strings.Replace(s, "__PROXY__", "PROXY 127.0.0.1:"+strconv.Itoa(*localPort)+";", 1)
+				log.Printf("pac uri: 127.0.0.1:%d/pac \n", pacPort)
+			}
+
+			http.HandleFunc("/pac", func(w http.ResponseWriter, r *http.Request) {
+				io.WriteString(w, s)
+			})
 		} else {
-			s = strings.Replace(s, "__PROXY__", "PROXY 127.0.0.1:"+strconv.Itoa(*localPort)+";", 1)
-			log.Printf("pac uri: 127.0.0.1:%d/pac \n", pacPort)
+			log.Println("Can not find file: " + *pac)
 		}
 
-		mux := http.NewServeMux()
-		mux.HandleFunc("/pac", func(w http.ResponseWriter, r *http.Request) {
-			io.WriteString(w, s)
-		})
-		go http.ListenAndServe(fmt.Sprintf("%s:%d", *localAddr, pacPort), mux)
-	} else {
-		log.Println("Can not find file: " + *pac)
-	}
+		log.Println(http.ListenAndServe(fmt.Sprintf("%s:%d", *localAddr, pacPort), nil))
+	}()
 
 	localServer, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *localAddr, *localPort))
 	if err != nil {
