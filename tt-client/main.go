@@ -40,7 +40,7 @@ func main() {
 	flag.Parse()
 
 	go func() {
-		log.Println(http.ListenAndServe(":9082", nil))
+		log.Println(http.ListenAndServe(fmt.Sprintf("%s:%d", *localAddr, *localPort+1), nil))
 	}()
 
 	if exist(*pac) {

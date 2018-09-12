@@ -33,7 +33,7 @@ func main() {
 	flag.Parse()
 
 	go func() {
-		log.Println(http.ListenAndServe(":9080", nil))
+		log.Println(http.ListenAndServe(fmt.Sprintf("%s:%d", *addr, *port+1), nil))
 	}()
 
 	listen, err := transport.Listen(fmt.Sprintf("%s:%d", *addr, *port), *password)
