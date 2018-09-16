@@ -81,6 +81,8 @@ func main() {
 	opts = []grpc.ServerOption{
 		grpc.Creds(ta),
 		grpc.ConnectionTimeout(30 * time.Second),
+		grpc.WriteBufferSize(1024),
+		grpc.ReadBufferSize(1024),
 	}
 
 	grpcServer := grpc.NewServer(opts...)

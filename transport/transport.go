@@ -45,7 +45,7 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 		defer recoverHandle()
 
 		for {
-			buf := make([]byte, 768)
+			buf := make([]byte, 1024)
 			i, err := forwardConn.Read(buf)
 			handleErr(err)
 
@@ -104,7 +104,7 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 		defer wg.Done()
 
 		for {
-			buf := make([]byte, 768)
+			buf := make([]byte, 1024)
 			i, err := conn.Read(buf)
 			handleErr(err)
 

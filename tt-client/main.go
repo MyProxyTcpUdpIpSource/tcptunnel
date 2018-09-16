@@ -115,6 +115,8 @@ func main() {
 			aesConn, err := transport.Dial(addr, *password, duration)
 			return aesConn, err
 		}),
+		grpc.WithWriteBufferSize(1024),
+		grpc.WithReadBufferSize(1024),
 	}
 
 	conn, err := grpc.Dial(
