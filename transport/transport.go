@@ -1,7 +1,7 @@
 package transport
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	pb "github.com/Randomsock5/tcptunnel/proto"
 	"io"
@@ -60,17 +60,14 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 	go func() {
 		defer recoverHandle()
 		defer wg.Done()
-		writeBuff := bufio.NewWriter(forwardConn)
 
 		for {
 			payload, err := stream.Recv()
 			handleErr(err)
 
 			data := payload.GetData()
-			_, err = writeBuff.Write(data)
-			handleErr(err)
-
-			err = writeBuff.Flush()
+			buf := bytes.NewBuffer(data)
+			_, err = io.CopyN(forwardConn, buf, int64(len(data)))
 			handleErr(err)
 		}
 	}()
@@ -119,17 +116,15 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 	go func() {
 		defer recoverHandle()
 		defer wg.Done()
-		writeBuff := bufio.NewWriter(conn)
 
 		for {
 			payload, err := stream.Recv()
 			handleErr(err)
 
 			data := payload.GetData()
-			_, err = writeBuff.Write(data)
-			handleErr(err)
 
-			err = writeBuff.Flush()
+			buf := bytes.NewBuffer(data)
+			_, err = io.CopyN(conn, buf, int64(len(data)))
 			handleErr(err)
 		}
 	}()
