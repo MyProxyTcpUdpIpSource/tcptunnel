@@ -97,8 +97,8 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 	wg := &sync.WaitGroup{}
 
 	go func() {
-		defer recoverHandle()
 		defer wg.Done()
+		defer recoverHandle()
 
 		for {
 			buf := make([]byte, 1024)
@@ -114,8 +114,8 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 	}()
 
 	go func() {
-		defer recoverHandle()
 		defer wg.Done()
+		defer recoverHandle()
 
 		for {
 			payload, err := stream.Recv()
