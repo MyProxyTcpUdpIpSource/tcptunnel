@@ -3,7 +3,12 @@ syntax = "proto3";
 package proto;
 
 message Payload {
-  bytes data = 1;
+  enum LoadType {
+    ACK = 0;
+    Load = 1;
+  }
+  LoadType flag = 1;
+  bytes    data = 2;
 }
 
 service ProxyService {

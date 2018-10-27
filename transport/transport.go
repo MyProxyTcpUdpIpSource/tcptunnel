@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"time"
+  "math/rand"
 
 	"sync"
 )
@@ -53,6 +54,7 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 
 			var payload pb.Payload
 			payload.Data = buf[:i]
+      payload.Flag = pb.Payload_Load
 
 			err = stream.Send(&payload)
 			handleErr(err)
@@ -67,10 +69,12 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 			payload, err := stream.Recv()
 			handleErr(err)
 
-			data := payload.GetData()
-			buf := bytes.NewBuffer(data)
-			_, err = io.CopyN(forwardConn, buf, int64(len(data)))
-			handleErr(err)
+      if payload.GetFlag() == pb.Payload_Load {
+        data := payload.GetData()
+        buf := bytes.NewBuffer(data)
+        _, err = io.CopyN(forwardConn, buf, int64(len(data)))
+        handleErr(err)
+      }
 		}
 	}()
 
@@ -79,6 +83,7 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 
 	return nil
 }
+
 
 func NewServer(forward string) pb.ProxyServiceServer {
 	s := &proxyService{forward: forward}
@@ -109,6 +114,7 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 
 			var payload pb.Payload
 			payload.Data = buf[:i]
+      payload.Flag = pb.Payload_Load
 
 			err = stream.Send(&payload)
 			handleErr(err)
@@ -123,11 +129,23 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 			payload, err := stream.Recv()
 			handleErr(err)
 
-			data := payload.GetData()
+      if payload.GetFlag() ==  pb.Payload_Load {
+        data := payload.GetData()
+        buf := bytes.NewBuffer(data)
 
-			buf := bytes.NewBuffer(data)
-			_, err = io.CopyN(conn, buf, int64(len(data)))
-			handleErr(err)
+        _, err = io.CopyN(conn, buf, int64(len(data)))
+        handleErr(err)
+
+        ackData := make([]byte, rand.Intn(127) + 1)
+        rand.Read(ackData)
+
+        var ack pb.Payload
+
+        ack.Data = ackData
+        ack.Flag = pb.Payload_ACK
+
+        stream.SendMsg(&ack)
+      }
 		}
 	}()
 
