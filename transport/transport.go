@@ -12,6 +12,8 @@ import (
 	"sync"
 )
 
+const buffSize = 4096
+
 func handleErr(err error) {
 	if err != nil {
 		panic(err)
@@ -45,7 +47,7 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 		defer recoverHandle()
 
 		for {
-			buf := make([]byte, 1024)
+			buf := make([]byte, buffSize)
 			i, err := forwardConn.Read(buf)
 			handleErr(err)
 
@@ -58,8 +60,8 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 	}()
 
 	go func() {
+    defer wg.Done()
 		defer recoverHandle()
-		defer wg.Done()
 
 		for {
 			payload, err := stream.Recv()
@@ -101,7 +103,7 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 		defer recoverHandle()
 
 		for {
-			buf := make([]byte, 1024)
+			buf := make([]byte, buffSize)
 			i, err := conn.Read(buf)
 			handleErr(err)
 
