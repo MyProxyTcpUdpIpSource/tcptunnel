@@ -86,8 +86,10 @@ func main() {
 		grpc.ReadBufferSize(1024),
 	}
 
-	grpcServer := grpc.NewServer(opts...)
-	pb.RegisterProxyServiceServer(grpcServer, transport.NewServer(*forward))
+	for {
+		grpcServer := grpc.NewServer(opts...)
+		pb.RegisterProxyServiceServer(grpcServer, transport.NewServer(*forward))
 
-	grpcServer.Serve(listen)
+		grpcServer.Serve(listen)
+	}
 }
