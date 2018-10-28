@@ -63,7 +63,7 @@ func NewRequest(conn io.ReadWriter) (*Request, error) {
 		return nil, fmt.Errorf("Failed to get command version: %s", err)
 	}
 
-	if header[0] != socks5Version {
+	if header[0] != Socks5Version {
 		return nil, fmt.Errorf("Unsupported command version: %d", header[0])
 	}
 
@@ -191,7 +191,7 @@ func sendReply(w io.Writer, resp uint8, addr *AddrSpec) error {
 	}
 
 	msg := make([]byte, 6+len(addrBody))
-	msg[0] = socks5Version
+	msg[0] = Socks5Version
 	msg[1] = resp
 	msg[2] = 0
 	msg[3] = addrType
