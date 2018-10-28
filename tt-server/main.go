@@ -90,6 +90,9 @@ func main() {
 		grpcServer := grpc.NewServer(opts...)
 		pb.RegisterProxyServiceServer(grpcServer, transport.NewServer(*forward))
 
-		grpcServer.Serve(listen)
+		err = grpcServer.Serve(listen)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }
