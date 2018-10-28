@@ -7,11 +7,12 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"github.com/Randomsock5/tcptunnel/constants"
 	"io"
 	"log"
 	"net"
 	"time"
+
+	"github.com/Randomsock5/tcptunnel/constants"
 )
 
 type AESConn struct {
