@@ -3,13 +3,12 @@ package transport
 import (
 	"bytes"
 	"context"
+	"github.com/Randomsock5/tcptunnel/constants"
+	pb "github.com/Randomsock5/tcptunnel/proto"
 	"io"
 	"log"
 	"math/rand"
 	"net"
-	"time"
-
-	pb "github.com/Randomsock5/tcptunnel/proto"
 
 	"sync"
 )
@@ -36,7 +35,7 @@ type proxyService struct {
 }
 
 func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
-	forwardConn, err := net.Dial("tcp", s.forward)
+	forwardConn, err := net.DialTimeout("tcp", s.forward, constants.ConnTimeout)
 	if err != nil {
 		log.Println(err)
 		return err
@@ -93,8 +92,9 @@ func NewServer(forward string) pb.ProxyServiceServer {
 func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 	defer conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ConnTimeout)
 	defer cancel()
+
 	stream, err := client.Stream(ctx)
 	if err != nil {
 		log.Println(err)
