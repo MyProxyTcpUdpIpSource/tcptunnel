@@ -1,10 +1,10 @@
 package socks5
 
 import (
-  "testing"
+	"testing"
 )
 
 func TestSOCKS5_Connect(t *testing.T) {
-  server := &Server{}
-  server.ListenAndServe("::3980")
+	server := &Server{}
+	server.ListenAndServe("::3980")
 }

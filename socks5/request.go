@@ -2,19 +2,19 @@ package socks5
 
 import (
 	"fmt"
+	"io"
 	"net"
-  "io"
 
-  "strconv"
+	"strconv"
 )
 
 const (
-  ConnectCommand   = uint8(1)
-  BindCommand      = uint8(2)
-  AssociateCommand = uint8(3)
-  ipv4Address      = uint8(1)
-  fqdnAddress      = uint8(3)
-  ipv6Address      = uint8(4)
+	ConnectCommand   = uint8(1)
+	BindCommand      = uint8(2)
+	AssociateCommand = uint8(3)
+	ipv4Address      = uint8(1)
+	fqdnAddress      = uint8(3)
+	ipv6Address      = uint8(4)
 )
 
 const (
@@ -67,12 +67,12 @@ func NewRequest(conn io.ReadWriter) (*Request, error) {
 		return nil, fmt.Errorf("Unsupported command version: %d", header[0])
 	}
 
-  if header[1] != ConnectCommand {
-    if err := sendReply(conn, commandNotSupported, nil); err != nil {
-    		return nil, fmt.Errorf("Failed to send reply: %s", err)
-    }
-    return nil, fmt.Errorf("Unsupported command: %d", header[1])
-  }
+	if header[1] != ConnectCommand {
+		if err := sendReply(conn, commandNotSupported, nil); err != nil {
+			return nil, fmt.Errorf("Failed to send reply: %s", err)
+		}
+		return nil, fmt.Errorf("Unsupported command: %d", header[1])
+	}
 
 	// Read in the destination address
 	dest, err := readAddrSpec(conn)
@@ -84,34 +84,33 @@ func NewRequest(conn io.ReadWriter) (*Request, error) {
 		DestAddr: dest,
 	}
 
-  if err := sendReply(conn, successReply, dest); err != nil {
+	if err := sendReply(conn, successReply, dest); err != nil {
 		return nil, fmt.Errorf("Failed to send reply: %s", err)
-  }
+	}
 
 	return request, nil
 }
 
 func (req *Request) HandleConnect(conn io.ReadWriter) error {
-  forwardConn, err := net.Dial("tcp", req.DestAddr.Address())
-  if err != nil {
-    return fmt.Errorf("Connect to %v failed: %v", req.DestAddr, err)
-  }
-  defer forwardConn.Close()
+	forwardConn, err := net.Dial("tcp", req.DestAddr.Address())
+	if err != nil {
+		return fmt.Errorf("Connect to %v failed: %v", req.DestAddr, err)
+	}
+	defer forwardConn.Close()
 
-  errCh := make(chan error, 2)
-  go proxy(forwardConn, conn, errCh)
-  go proxy(conn, forwardConn, errCh)
+	errCh := make(chan error, 2)
+	go proxy(forwardConn, conn, errCh)
+	go proxy(conn, forwardConn, errCh)
 
-  for i := 0; i < 2; i++ {
-    e := <-errCh
-    if e != nil {
-      return e
-    }
-  }
+	for i := 0; i < 2; i++ {
+		e := <-errCh
+		if e != nil {
+			return e
+		}
+	}
 
-  return nil
+	return nil
 }
-
 
 func readAddrSpec(r io.Reader) (*AddrSpec, error) {
 	d := &AddrSpec{}

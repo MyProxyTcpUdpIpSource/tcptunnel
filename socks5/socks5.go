@@ -2,13 +2,13 @@ package socks5
 
 import (
 	"fmt"
+	"log"
 	"net"
-  "log"
 )
 
 const (
-	socks5Version = uint8(5)
-  NoAuth        = uint8(0)
+	Socks5Version = uint8(5)
+	NoAuth        = uint8(0)
 )
 
 type Server struct {
@@ -35,7 +35,6 @@ func (s *Server) Serve(l net.Listener) error {
 	return nil
 }
 
-
 func (s *Server) ServeConn(conn net.Conn) error {
 	defer conn.Close()
 
@@ -45,23 +44,23 @@ func (s *Server) ServeConn(conn net.Conn) error {
 		return err
 	}
 
-	if version[0] != socks5Version {
+	if version[0] != Socks5Version {
 		err := fmt.Errorf("Unsupported SOCKS version: %v", version)
 		log.Printf("[ERR]: %s \n", err)
 		return err
 	}
 
 	// NoAuth
-	_, err := conn.Write([]byte{socks5Version, NoAuth})
+	_, err := conn.Write([]byte{Socks5Version, NoAuth})
 	if err != nil {
-    log.Println(err)
+		log.Println(err)
 		return err
 	}
 
-  request, err := NewRequest(conn)
-  if err != nil {
-    return err
-  }
+	request, err := NewRequest(conn)
+	if err != nil {
+		return err
+	}
 
 	return request.HandleConnect(conn)
 }
