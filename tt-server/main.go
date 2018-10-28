@@ -8,7 +8,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"time"
+
+	"github.com/Randomsock5/tcptunnel/constants"
 
 	pb "github.com/Randomsock5/tcptunnel/proto"
 	"github.com/Randomsock5/tcptunnel/transport"
@@ -80,7 +81,7 @@ func main() {
 	var opts []grpc.ServerOption
 	opts = []grpc.ServerOption{
 		grpc.Creds(ta),
-		grpc.ConnectionTimeout(30 * time.Second),
+		grpc.ConnectionTimeout(6 * constants.ConnTimeout),
 		grpc.WriteBufferSize(1024),
 		grpc.ReadBufferSize(1024),
 	}

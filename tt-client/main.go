@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Randomsock5/tcptunnel/constants"
 	pb "github.com/Randomsock5/tcptunnel/proto"
 	"github.com/Randomsock5/tcptunnel/transport"
 	"google.golang.org/grpc"
@@ -115,7 +116,7 @@ func main() {
 			aesConn, err := transport.Dial(addr, *password, duration)
 			return aesConn, err
 		}),
-		grpc.WithBackoffMaxDelay(10 * time.Second),
+		grpc.WithBackoffMaxDelay(6 * constants.ConnTimeout),
 		grpc.WithWriteBufferSize(1024),
 		grpc.WithReadBufferSize(1024),
 	}
