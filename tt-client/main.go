@@ -116,7 +116,7 @@ func main() {
 			aesConn, err := transport.Dial(addr, *password, duration)
 			return aesConn, err
 		}),
-		grpc.WithBackoffMaxDelay(6 * constants.ConnTimeout),
+		grpc.WithBackoffMaxDelay(constants.ConnTimeout / 2),
 		grpc.WithWriteBufferSize(1024),
 		grpc.WithReadBufferSize(1024),
 	}
