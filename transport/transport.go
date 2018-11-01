@@ -3,20 +3,20 @@ package transport
 import (
 	"bytes"
 	"context"
-	"github.com/Randomsock5/tcptunnel/constants"
-	pb "github.com/Randomsock5/tcptunnel/proto"
 	"io"
 	"log"
 	"math/rand"
 	"net"
 
-	"sync"
+	"github.com/Randomsock5/tcptunnel/constants"
+	pb "github.com/Randomsock5/tcptunnel/proto"
 )
 
 const buffSize = 4096
 
-func handleErr(err error) {
+func handleErr(err error, errCh chan error) {
 	if err != nil {
+		errCh <- err
 		panic(err)
 	}
 }
@@ -34,6 +34,22 @@ type proxyService struct {
 	forward string
 }
 
+type sendInterface interface {
+	Send(*pb.Payload) error
+}
+
+func sendACK(stream sendInterface) error {
+	ackData := make([]byte, rand.Intn(255)+1)
+	rand.Read(ackData)
+
+	var ack pb.Payload
+
+	ack.Data = ackData
+	ack.Flag = pb.Payload_ACK
+
+	return stream.Send(&ack)
+}
+
 func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 	forwardConn, err := net.DialTimeout("tcp", s.forward, constants.ConnTimeout)
 	if err != nil {
@@ -41,45 +57,50 @@ func (s *proxyService) Stream(stream pb.ProxyService_StreamServer) error {
 		return err
 	}
 	defer forwardConn.Close()
-	wg := &sync.WaitGroup{}
+	errCh := make(chan error, 2)
 
 	go func() {
-		defer wg.Done()
 		defer recoverHandle()
 
 		for {
 			buf := make([]byte, buffSize)
 			i, err := forwardConn.Read(buf)
-			handleErr(err)
+			handleErr(err, errCh)
 
 			var payload pb.Payload
 			payload.Data = buf[:i]
 			payload.Flag = pb.Payload_Load
 
 			err = stream.Send(&payload)
-			handleErr(err)
+			handleErr(err, errCh)
 		}
 	}()
 
 	go func() {
-		defer wg.Done()
 		defer recoverHandle()
 
 		for {
 			payload, err := stream.Recv()
-			handleErr(err)
+			handleErr(err, errCh)
 
 			if payload.GetFlag() == pb.Payload_Load {
 				data := payload.GetData()
 				buf := bytes.NewBuffer(data)
 				_, err = io.CopyN(forwardConn, buf, int64(len(data)))
-				handleErr(err)
+				handleErr(err, errCh)
+
+				err = sendACK(stream)
+				handleErr(err, errCh)
 			}
 		}
 	}()
 
-	wg.Add(2)
-	wg.Wait()
+	for i := 0; i < 2; i++ {
+		e := <-errCh
+		if e != nil {
+			return e
+		}
+	}
 
 	return nil
 }
@@ -101,56 +122,51 @@ func ClientProxyService(conn net.Conn, client pb.ProxyServiceClient) {
 		return
 	}
 	defer stream.CloseSend()
-	wg := &sync.WaitGroup{}
+	errCh := make(chan error, 2)
 
 	go func() {
-		defer wg.Done()
 		defer recoverHandle()
 
 		for {
 			buf := make([]byte, buffSize)
 			i, err := conn.Read(buf)
-			handleErr(err)
+			handleErr(err, errCh)
 
 			var payload pb.Payload
 			payload.Data = buf[:i]
 			payload.Flag = pb.Payload_Load
 
 			err = stream.Send(&payload)
-			handleErr(err)
+			handleErr(err, errCh)
 		}
 	}()
 
 	go func() {
-		defer wg.Done()
 		defer recoverHandle()
 
 		for {
 			payload, err := stream.Recv()
-			handleErr(err)
+			handleErr(err, errCh)
 
 			if payload.GetFlag() == pb.Payload_Load {
 				data := payload.GetData()
 				buf := bytes.NewBuffer(data)
 
 				_, err = io.CopyN(conn, buf, int64(len(data)))
-				handleErr(err)
+				handleErr(err, errCh)
 
-				ackData := make([]byte, rand.Intn(127)+1)
-				rand.Read(ackData)
-
-				var ack pb.Payload
-
-				ack.Data = ackData
-				ack.Flag = pb.Payload_ACK
-
-				stream.SendMsg(&ack)
+				err = sendACK(stream)
+				handleErr(err, errCh)
 			}
 		}
 	}()
 
-	wg.Add(2)
-	wg.Wait()
+	for i := 0; i < 2; i++ {
+		e := <-errCh
+		if e != nil {
+			return
+		}
+	}
 
 	return
 }
