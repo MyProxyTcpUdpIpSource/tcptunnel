@@ -117,6 +117,8 @@ func (l *Listener) Accept() (net.Conn, error) {
 	copy(iv[:], hash[:aes.BlockSize])
 
 	aesConn, err := NewAESConn(l.key, iv, conn)
+	err = conn.SetReadDeadline(time.Time{})
+
 	return aesConn, err
 }
 
