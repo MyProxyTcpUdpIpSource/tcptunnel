@@ -98,10 +98,12 @@ func (l *Listener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn.SetReadDeadline(time.Now().Add(constants.ConnTimeout))
+	err = conn.SetReadDeadline(time.Now().Add(constants.ConnTimeout))
+	if err != nil {
+		return nil, err
+	}
 
 	ivVector := make([]byte, constants.IVLength)
-
 	if _, err := io.ReadFull(conn, ivVector); err != nil {
 		log.Fatal(err)
 	}
@@ -144,7 +146,6 @@ func Dial(address string, key string, timeout time.Duration) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn.SetReadDeadline(time.Now().Add(constants.ConnTimeout))
 
 	ivVector := make([]byte, constants.IVLength)
 	_, err = rand.Read(ivVector[:])

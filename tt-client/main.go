@@ -117,8 +117,6 @@ func main() {
 			return aesConn, err
 		}),
 		grpc.WithBackoffMaxDelay(constants.ConnTimeout / 2),
-		grpc.WithWriteBufferSize(1024),
-		grpc.WithReadBufferSize(1024),
 	}
 
 	conn, err := grpc.Dial(

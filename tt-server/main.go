@@ -81,9 +81,7 @@ func main() {
 	var opts []grpc.ServerOption
 	opts = []grpc.ServerOption{
 		grpc.Creds(ta),
-		grpc.ConnectionTimeout(6 * constants.ConnTimeout),
-		grpc.WriteBufferSize(1024),
-		grpc.ReadBufferSize(1024),
+		grpc.ConnectionTimeout(constants.ConnTimeout),
 	}
 
 	for {
