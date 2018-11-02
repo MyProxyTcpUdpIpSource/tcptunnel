@@ -149,6 +149,16 @@ func Dial(address string, key string, timeout time.Duration) (net.Conn, error) {
 		return nil, err
 	}
 
+	err = conn.(*net.TCPConn).SetKeepAlive(true)
+	if err != nil {
+		return nil, err
+	}
+
+	err = conn.(*net.TCPConn).SetKeepAlivePeriod(2 * timeout)
+	if err != nil {
+		return nil, err
+	}
+
 	ivVector := make([]byte, constants.IVLength)
 	_, err = rand.Read(ivVector[:])
 
