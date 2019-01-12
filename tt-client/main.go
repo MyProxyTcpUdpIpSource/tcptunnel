@@ -25,6 +25,7 @@ import (
 )
 
 var (
+	server    = flag.String("server", "127.0.0.1", "Set server address")
 	port      = flag.Int("port", 8443, "Set server port")
 	localAddr = flag.String("local", "", "Set local address")
 	localPort = flag.Int("localPort", 8088, "Set local port")
@@ -116,7 +117,7 @@ func main() {
 	}
 
 	conn, err := grpc.Dial(
-		fmt.Sprintf(":%d", *port),
+		fmt.Sprintf("%s:%d", *server, *port),
 		opts...)
 	if err != nil {
 		log.Fatalln(err)
