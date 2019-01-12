@@ -20,8 +20,7 @@ import (
 )
 
 var (
-	addr     = flag.String("server", "", "Set server address")
-	port     = flag.Int("port", 8443, "Set server port")
+	port     = flag.Int("port", 8443, "Set listen port")
 	forward  = flag.String("forward", "127.0.0.1:3128", "Set forward address")
 	password = flag.String("password", "password", "password")
 
@@ -34,10 +33,10 @@ func main() {
 	flag.Parse()
 
 	go func() {
-		log.Println(http.ListenAndServe(fmt.Sprintf("%s:%d", *addr, *port+1), nil))
+		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", *port+1), nil))
 	}()
 
-	listen, err := transport.Listen(fmt.Sprintf("%s:%d", *addr, *port), *password)
+	listen, err := transport.Listen(fmt.Sprintf(":%d", *port), *password)
 	if err != nil {
 		log.Fatalln(err)
 		return

@@ -25,7 +25,6 @@ import (
 )
 
 var (
-	addr      = flag.String("server", "127.0.0.1", "Set server address")
 	port      = flag.Int("port", 8443, "Set server port")
 	localAddr = flag.String("local", "", "Set local address")
 	localPort = flag.Int("localPort", 8088, "Set local port")
@@ -51,11 +50,8 @@ func main() {
 
 			s := string(b[:])
 			if *localAddr != "" {
-				s = strings.Replace(s, "__PROXY__", "PROXY "+*localAddr+":"+strconv.Itoa(*localPort)+";", 1)
+				s = strings.Replace(s, "__PROXY_IP_ADDRESS__", "PROXY "+*localAddr+":"+strconv.Itoa(*localPort)+";", 1)
 				log.Printf("pac uri: %s:%d/pac\n", *localAddr, pacPort)
-			} else {
-				s = strings.Replace(s, "__PROXY__", "PROXY 127.0.0.1:"+strconv.Itoa(*localPort)+";", 1)
-				log.Printf("pac uri: 127.0.0.1:%d/pac \n", pacPort)
 			}
 
 			http.HandleFunc("/pac", func(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +116,7 @@ func main() {
 	}
 
 	conn, err := grpc.Dial(
-		fmt.Sprintf("%s:%d", *addr, *port),
+		fmt.Sprintf(":%d", *port),
 		opts...)
 	if err != nil {
 		log.Fatalln(err)
